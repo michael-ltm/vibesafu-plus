@@ -1,6 +1,6 @@
 {
   "name": "vibesafu-plus",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Enhanced Claude Code security guard - interactive alerts instead of auto-deny, with customizable rules",
   "type": "module",
   "main": "dist/index.js",

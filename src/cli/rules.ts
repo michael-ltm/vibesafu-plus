@@ -4,6 +4,7 @@
  */
 
 import { readConfig, writeConfig } from './config.js';
+import { loadProjectRules } from '../utils/dialog.js';
 
 /**
  * Display all rules with their status
@@ -74,6 +75,21 @@ export async function rules(args: string[]): Promise<void> {
     console.log('');
   }
 
-  console.log('To edit rules, modify: ~/.vibesafu/config.json');
+  // Project-level rules
+  const cwd = process.cwd();
+  const projectRules = await loadProjectRules(cwd);
+  if (projectRules.length > 0) {
+    console.log('\x1b[35m--- Project Rules (.vibesafu-rules.json) ---\x1b[0m');
+    console.log(`Location: ${cwd}/.vibesafu-rules.json\n`);
+    for (const rule of projectRules) {
+      const status = rule.enabled ? '\x1b[35m[ON] \x1b[0m' : '\x1b[90m[OFF]\x1b[0m';
+      console.log(`  ${status} ${rule.description}`);
+      console.log(`        Pattern: ${rule.pattern}`);
+    }
+    console.log('');
+  }
+
+  console.log('To edit global rules: ~/.vibesafu/config.json');
+  console.log('To edit project rules: .vibesafu-rules.json (in project root)');
   console.log('To regenerate defaults: vibesafu-plus rules --init');
 }

@@ -19,6 +19,7 @@ import { triageWithHaiku } from './guard/haiku-triage.js';
 import { reviewWithSonnet } from './guard/sonnet-review.js';
 import { readConfig } from './cli/config.js';
 import { sendAlert } from './utils/notify.js';
+import { showSecurityDialog, saveProjectRule, saveGlobalRule, loadProjectRules } from './utils/dialog.js';
 
 /** Timeout in seconds before auto-denying risky commands */
 const TIMEOUT_SECONDS = 7;
@@ -232,6 +233,18 @@ export async function processPermissionRequest(
   }
 
   // Step 3: Check custom rules and patterns
+
+  // 3-pre: Check project-level rules ({cwd}/.vibesafu-rules.json)
+  const projectRules = await loadProjectRules(input.cwd);
+  for (const rule of projectRules) {
+    if (rule.enabled && safeRegexTest(rule.pattern, command)) {
+      return {
+        decision: 'allow',
+        reason: `Project rule: ${rule.description} (${rule.pattern})`,
+        source: 'instant-allow',
+      };
+    }
+  }
 
   // 3a: Check new-style rules (autoApprove)
   for (const rule of config.rules.autoApprove) {
@@ -475,10 +488,10 @@ export async function runHook(): Promise<void> {
   }
 
   const warningMessage = result.userMessage ?? result.reason;
+  const command = typeof input.tool_input.command === 'string' ? input.tool_input.command : input.tool_name;
 
-  // Check config for auto-deny rules
+  // Check config for auto-deny rules (legacy behavior)
   if (result.decision === 'deny' && config.autoDeny) {
-    // If autoDeny is enabled in config, use the old auto-deny behavior
     const timeout = result.timeoutSeconds ?? TIMEOUT_SECONDS;
     await new Promise((resolve) => setTimeout(resolve, timeout * 1000));
     const timeoutDisplay = timeout >= 3600
@@ -492,16 +505,42 @@ export async function runHook(): Promise<void> {
     return;
   }
 
-  // Send notification + sound alert to the user
-  const commandPreview = typeof input.tool_input.command === 'string'
-    ? input.tool_input.command.slice(0, 80)
-    : input.tool_name;
+  // Show interactive macOS dialog with Allow Once / Always Allow / Deny
+  const dialogResult = showSecurityDialog(warningMessage, command, result.source);
+
+  if (dialogResult) {
+    // Dialog was shown and user made a choice
+    switch (dialogResult.action) {
+      case 'allow':
+        output = createHookOutput('allow');
+        console.log(JSON.stringify(output));
+        return;
+
+      case 'deny':
+        output = createHookOutput('deny', `🛡️ [vibesafu-plus] Denied by user\n\nReason: ${warningMessage}`);
+        console.log(JSON.stringify(output));
+        return;
+
+      case 'always-allow-project':
+        await saveProjectRule(input.cwd, command, warningMessage);
+        output = createHookOutput('allow');
+        console.log(JSON.stringify(output));
+        return;
+
+      case 'always-allow-global':
+        await saveGlobalRule(command, warningMessage);
+        output = createHookOutput('allow');
+        console.log(JSON.stringify(output));
+        return;
+    }
+  }
+
+  // Fallback: dialog not available (non-macOS) or cancelled → notification + ask
   sendAlert(
     'vibesafu-plus: Security Alert',
-    `${result.source}: ${commandPreview}`
+    `${result.source}: ${command.slice(0, 80)}`
   );
 
-  // Return 'ask' instead of auto-deny - let the user decide in Claude Code's UI
   const askMessage = `🛡️ [vibesafu-plus] Needs your decision\n\n` +
     `Reason: ${warningMessage}\n\n` +
     `Please click "Allow" or "Deny" to proceed.`;
