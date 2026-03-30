@@ -19,7 +19,7 @@ import { triageWithHaiku } from './guard/haiku-triage.js';
 import { reviewWithSonnet } from './guard/sonnet-review.js';
 import { readConfig } from './cli/config.js';
 import { sendAlert } from './utils/notify.js';
-import { showSecurityDialog, saveProjectRule, saveGlobalRule, loadProjectRules } from './utils/dialog.js';
+import { loadProjectRules } from './utils/dialog.js';
 
 /** Timeout in seconds before auto-denying risky commands */
 const TIMEOUT_SECONDS = 7;
@@ -505,45 +505,19 @@ export async function runHook(): Promise<void> {
     return;
   }
 
-  // Show interactive macOS dialog with Allow Once / Always Allow / Deny
-  const dialogResult = showSecurityDialog(warningMessage, command, result.source);
-
-  if (dialogResult) {
-    // Dialog was shown and user made a choice
-    switch (dialogResult.action) {
-      case 'allow':
-        output = createHookOutput('allow');
-        console.log(JSON.stringify(output));
-        return;
-
-      case 'deny':
-        output = createHookOutput('deny', `🛡️ [vibesafu-plus] Denied by user\n\nReason: ${warningMessage}`);
-        console.log(JSON.stringify(output));
-        return;
-
-      case 'always-allow-project':
-        await saveProjectRule(input.cwd, command, warningMessage);
-        output = createHookOutput('allow');
-        console.log(JSON.stringify(output));
-        return;
-
-      case 'always-allow-global':
-        await saveGlobalRule(command, warningMessage);
-        output = createHookOutput('allow');
-        console.log(JSON.stringify(output));
-        return;
-    }
-  }
-
-  // Fallback: dialog not available (non-macOS) or cancelled → notification + ask
+  // Send terminal alert (bell + stderr warning)
   sendAlert(
     'vibesafu-plus: Security Alert',
     `${result.source}: ${command.slice(0, 80)}`
   );
 
+  // Return 'ask' - Claude Code shows native Allow/Deny dialog
+  // Include save-rule hints so user can add permanent rules after allowing
   const askMessage = `🛡️ [vibesafu-plus] Needs your decision\n\n` +
     `Reason: ${warningMessage}\n\n` +
-    `Please click "Allow" or "Deny" to proceed.`;
+    `To always allow this type of command, run after allowing:\n` +
+    `  vibesafu-plus save --project "${command.slice(0, 60)}"\n` +
+    `  vibesafu-plus save --global  "${command.slice(0, 60)}"`;
 
   output = createHookOutput('ask', askMessage);
   console.log(JSON.stringify(output));

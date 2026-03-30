@@ -17,12 +17,13 @@ import { dirname, join } from 'node:path';
 import { install, uninstall } from './cli/install.js';
 import { config } from './cli/config.js';
 import { rules } from './cli/rules.js';
+import { save } from './cli/save.js';
 import { runHook } from './hook.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(join(__dirname, '../package.json'), 'utf-8'));
 
-const COMMANDS = ['install', 'uninstall', 'check', 'config', 'rules'] as const;
+const COMMANDS = ['install', 'uninstall', 'check', 'config', 'rules', 'save'] as const;
 type Command = (typeof COMMANDS)[number];
 
 async function main(): Promise<void> {
@@ -53,6 +54,7 @@ async function main(): Promise<void> {
     console.error('  check     - Run security check (stdin: PermissionRequest JSON)');
     console.error('  config    - Configure API key and settings');
     console.error('  rules     - View/manage auto-approve and alert rules');
+    console.error('  save      - Save a command as auto-approve rule');
     process.exit(1);
   }
 
@@ -72,6 +74,12 @@ async function main(): Promise<void> {
     case 'rules':
       await rules(positionals.slice(1));
       break;
+    case 'save': {
+      // Pass raw args after "save" to preserve flags like -p, -g
+      const saveIdx = process.argv.indexOf('save');
+      await save(saveIdx >= 0 ? process.argv.slice(saveIdx + 1) : positionals.slice(1));
+      break;
+    }
   }
 }
 
