@@ -1,0 +1,48 @@
+{
+  "name": "vibesafu-plus",
+  "version": "1.0.0",
+  "description": "Enhanced Claude Code security guard - interactive alerts instead of auto-deny, with customizable rules",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "vibesafu-plus": "dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "dev": "tsup src/index.ts --watch --format esm",
+    "build": "tsup src/index.ts --format esm --dts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit",
+    "verify": "pnpm typecheck && pnpm test",
+    "prepublishOnly": "pnpm verify && pnpm build"
+  },
+  "keywords": [
+    "claude",
+    "claude-code",
+    "developer-experience",
+    "developer-tools",
+    "cli",
+    "automation",
+    "productivity",
+    "safety",
+    "yolo"
+  ],
+  "author": "ming (forked from kevin-hs-sohn/vibesafu)",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.30.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.4.0",
+    "vitest": "^2.0.0"
+  }
+}

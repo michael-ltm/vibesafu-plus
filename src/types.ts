@@ -1,0 +1,82 @@
+/**
+ * Claude Code Hook Types for vibesafu
+ */
+
+// Hook Input (stdin)
+export interface PermissionRequestInput {
+  session_id: string;
+  transcript_path: string;
+  cwd: string;
+  permission_mode: string;
+  hook_event_name: 'PermissionRequest';
+  tool_name: string;
+  tool_input: Record<string, unknown>;
+  permission_suggestions?: Array<{
+    type: string;
+    tool: string;
+  }>;
+}
+
+// Hook Output (stdout)
+export interface PermissionRequestOutput {
+  hookSpecificOutput: {
+    hookEventName: 'PermissionRequest';
+    decision: {
+      behavior: 'allow' | 'deny' | 'ask';
+      message?: string;
+      updatedInput?: Record<string, unknown>;
+    };
+  };
+}
+
+// Config
+export interface vibesafuConfig {
+  anthropic: {
+    apiKey: string;
+  };
+  models: {
+    triage: string;
+    review: string;
+  };
+  trustedDomains: string[];
+  customPatterns: {
+    block: string[];
+    allow: string[];
+  };
+  /** MCP tools that are pre-approved (e.g., ["mcp__memory__*", "mcp__filesystem__read_file"]) */
+  allowedMCPTools: string[];
+  /** If true, use auto-deny after timeout (original vibesafu behavior). Default: false (interactive alert mode) */
+  autoDeny: boolean;
+  /** Rules with descriptions for better visibility */
+  rules: {
+    autoApprove: RuleEntry[];
+    alertAndAsk: RuleEntry[];
+  };
+}
+
+/** A configurable rule with description */
+export interface RuleEntry {
+  /** Regex pattern to match against the command */
+  pattern: string;
+  /** Human-readable description of what this rule does */
+  description: string;
+  /** Whether this rule is currently active */
+  enabled: boolean;
+}
+
+// Pattern Definition
+export interface BlockPattern {
+  name: string;
+  pattern: RegExp;
+  severity: 'critical' | 'high' | 'medium';
+  description: string;
+  risk: string;  // What could go wrong
+  legitimateUses?: string[];  // When this might be intentional
+}
+
+// Security Checkpoint
+export interface SecurityCheckpoint {
+  type: 'network' | 'package_install' | 'git_operation' | 'file_sensitive' | 'script_execution' | 'env_modification' | 'url_shortener';
+  command: string;
+  description: string;
+}
